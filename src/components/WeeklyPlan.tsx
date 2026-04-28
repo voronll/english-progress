@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ProgressBar } from "./ProgressBar";
 import { Streak } from "./Streak";
@@ -56,6 +57,28 @@ function sectionIdForToday() {
   if (dow === 3) return "quarta";
   if (dow === 4) return "quinta";
   return "sexta";
+}
+
+function startOfWeekMonday(date: Date) {
+  const d = new Date(date);
+  const dow = d.getDay(); // 0=Dom
+  const diffToMonday = dow === 0 ? -6 : 1 - dow;
+  d.setDate(d.getDate() + diffToMonday);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function weekRangeLabel(date: Date) {
+  const start = startOfWeekMonday(date);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+
+  const fmt = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+
+  return `${fmt.format(start)} – ${fmt.format(end)}`;
 }
 
 export function WeeklyPlan() {
@@ -228,6 +251,7 @@ export function WeeklyPlan() {
 
   const keyToday = useMemo(() => todayKey(), []);
   const todaySectionId = useMemo(() => sectionIdForToday(), []);
+  const currentWeekLabel = useMemo(() => weekRangeLabel(new Date()), []);
 
   const [completedByDate, setCompletedByDate] = useState<
     Record<string, Record<string, boolean>>
@@ -295,9 +319,28 @@ export function WeeklyPlan() {
     <div className="flex flex-1 flex-col bg-zinc-50 text-zinc-950 dark:bg-black dark:text-zinc-50">
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-8">
         <header className="mb-6">
-          <h1 className="text-xl font-semibold tracking-tight">
-            Plano semanal de inglês (dev)
-          </h1>
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              English Progress
+            </div>
+            <Link
+              href="/historico"
+              className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-900 shadow-sm transition hover:bg-zinc-50 active:scale-[0.99] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:bg-zinc-900/40"
+            >
+              Histórico
+            </Link>
+          </div>
+
+          <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+            <div className="flex items-baseline gap-3">
+              <h1 className="text-xl font-semibold tracking-tight">
+                Plano semanal de inglês (dev)
+              </h1>
+              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                {currentWeekLabel}
+              </span>
+            </div>
+          </div>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
             Marque as tarefas feitas e acompanhe o progresso por dia.
           </p>
