@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ProgressBar } from "./ProgressBar";
+import { Streak } from "./Streak";
 import { TaskCheckbox } from "./TaskCheckbox";
 
 type Variant = "blue" | "teal" | "amber" | "gray";
@@ -26,7 +27,8 @@ type Section = {
   card: Card;
 };
 
-const STORAGE_KEY = "english-progress:v1:completedSlots";
+const STORAGE_KEY_COMPLETED_BY_DATE = "english-progress:v2:completedSlotsByDate";
+const STORAGE_KEY_STUDIED_DATES = "english-progress:v1:studiedDates";
 
 function safeParseJSON<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -37,33 +39,116 @@ function safeParseJSON<T>(raw: string | null): T | null {
   }
 }
 
+function todayKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function sectionIdForToday() {
+  // getDay(): 0=Dom, 1=Seg, ..., 6=Sáb
+  const dow = new Date().getDay();
+  if (dow === 0 || dow === 6) return "sab-dom";
+  if (dow === 1) return "segunda";
+  if (dow === 2) return "terca";
+  if (dow === 3) return "quarta";
+  if (dow === 4) return "quinta";
+  return "sexta";
+}
+
 export function WeeklyPlan() {
   const sections: Section[] = useMemo(
     () => [
       {
-        id: "seg-ter-qua",
-        title: "Segunda · Terça · Quarta (dias padrão)",
+        id: "segunda",
+        title: "Segunda",
         card: {
-          id: "card-seg-ter-qua",
-          dayName: "Seg / Ter / Qua",
+          id: "card-segunda",
+          dayName: "Segunda",
           badge: { label: "30 min no total", variant: "blue" },
           slots: [
             {
-              id: "seg-ter-qua-trajeto",
+              id: "segunda-trajeto",
               time: "6:55 → 7:40 · trajeto",
               activity: "🎧 Podcast ou áudio técnico",
               detail:
                 'Ex: "Syntax.fm", "DevDiscuss", episódios do "Command Line Heroes" — tudo em inglês',
             },
             {
-              id: "seg-ter-qua-almoco",
+              id: "segunda-almoco",
               time: "11:25 → 11:55 · almoço",
               activity: "✍️ Prática ativa (20–25 min)",
               detail:
                 "Flashcards Anki (vocabulário técnico de dev) + 1 exercício de escrita curta ou leitura de documentação em inglês",
             },
             {
-              id: "seg-ter-qua-noite",
+              id: "segunda-noite",
+              time: "20:30+ · noite",
+              activity: "💻 Projetos pessoais em inglês (passivo)",
+              detail:
+                "Só mude o hábito: ler docs, Stack Overflow, commit messages e comentários de código em inglês",
+            },
+          ],
+        },
+      },
+      {
+        id: "terca",
+        title: "Terça",
+        card: {
+          id: "card-terca",
+          dayName: "Terça",
+          badge: { label: "30 min no total", variant: "blue" },
+          slots: [
+            {
+              id: "terca-trajeto",
+              time: "6:55 → 7:40 · trajeto",
+              activity: "🎧 Podcast ou áudio técnico",
+              detail:
+                'Ex: "Syntax.fm", "DevDiscuss", episódios do "Command Line Heroes" — tudo em inglês',
+            },
+            {
+              id: "terca-almoco",
+              time: "11:25 → 11:55 · almoço",
+              activity: "✍️ Prática ativa (20–25 min)",
+              detail:
+                "Flashcards Anki (vocabulário técnico de dev) + 1 exercício de escrita curta ou leitura de documentação em inglês",
+            },
+            {
+              id: "terca-noite",
+              time: "20:30+ · noite",
+              activity: "💻 Projetos pessoais em inglês (passivo)",
+              detail:
+                "Só mude o hábito: ler docs, Stack Overflow, commit messages e comentários de código em inglês",
+            },
+          ],
+        },
+      },
+      {
+        id: "quarta",
+        title: "Quarta",
+        card: {
+          id: "card-quarta",
+          dayName: "Quarta",
+          badge: { label: "30 min no total", variant: "blue" },
+          slots: [
+            {
+              id: "quarta-trajeto",
+              time: "6:55 → 7:40 · trajeto",
+              activity: "🎧 Podcast ou áudio técnico",
+              detail:
+                'Ex: "Syntax.fm", "DevDiscuss", episódios do "Command Line Heroes" — tudo em inglês',
+            },
+            {
+              id: "quarta-almoco",
+              time: "11:25 → 11:55 · almoço",
+              activity: "✍️ Prática ativa (20–25 min)",
+              detail:
+                "Flashcards Anki (vocabulário técnico de dev) + 1 exercício de escrita curta ou leitura de documentação em inglês",
+            },
+            {
+              id: "quarta-noite",
               time: "20:30+ · noite",
               activity: "💻 Projetos pessoais em inglês (passivo)",
               detail:
@@ -141,17 +226,49 @@ export function WeeklyPlan() {
     [],
   );
 
-  const [completed, setCompleted] = useState<Record<string, boolean>>(() => {
+  const keyToday = useMemo(() => todayKey(), []);
+  const todaySectionId = useMemo(() => sectionIdForToday(), []);
+
+  const [completedByDate, setCompletedByDate] = useState<
+    Record<string, Record<string, boolean>>
+  >(() => {
+    if (typeof window === "undefined") return {};
+    const saved = safeParseJSON<Record<string, Record<string, boolean>>>(
+      window.localStorage.getItem(STORAGE_KEY_COMPLETED_BY_DATE),
+    );
+    return saved && typeof saved === "object" ? saved : {};
+  });
+
+  const [studiedDates, setStudiedDates] = useState<Record<string, boolean>>(() => {
     if (typeof window === "undefined") return {};
     const saved = safeParseJSON<Record<string, boolean>>(
-      window.localStorage.getItem(STORAGE_KEY),
+      window.localStorage.getItem(STORAGE_KEY_STUDIED_DATES),
     );
     return saved && typeof saved === "object" ? saved : {};
   });
 
   useEffect(() => {
-    globalThis?.localStorage?.setItem(STORAGE_KEY, JSON.stringify(completed));
-  }, [completed]);
+    globalThis?.localStorage?.setItem(
+      STORAGE_KEY_COMPLETED_BY_DATE,
+      JSON.stringify(completedByDate),
+    );
+  }, [completedByDate]);
+
+  useEffect(() => {
+    globalThis?.localStorage?.setItem(
+      STORAGE_KEY_STUDIED_DATES,
+      JSON.stringify(studiedDates),
+    );
+  }, [studiedDates]);
+
+  const completedToday = completedByDate[keyToday] ?? {};
+
+  const todaySection = sections.find((s) => s.id === todaySectionId) ?? null;
+
+  function isTodayComplete(nextCompletedToday: Record<string, boolean>) {
+    if (!todaySection) return false;
+    return todaySection.card.slots.every((slot) => Boolean(nextCompletedToday[slot.id]));
+  }
 
   const badgeClassByVariant: Record<Variant, string> = {
     blue: "bg-sky-100 text-sky-950 dark:bg-sky-950 dark:text-sky-200",
@@ -186,6 +303,8 @@ export function WeeklyPlan() {
           </p>
         </header>
 
+        <Streak studiedDates={studiedDates} todayKey={keyToday} />
+
         <div className="mb-6 flex flex-wrap gap-x-4 gap-y-2 text-xs text-zinc-600 dark:text-zinc-400">
           <span className="inline-flex items-center gap-2">
             <span className={`h-2 w-2 rounded-full ${dotClassByVariant.blue}`} />
@@ -209,9 +328,10 @@ export function WeeklyPlan() {
           {sections.map((section) => {
             const total = section.card.slots.length;
             const done = section.card.slots.reduce(
-              (acc, slot) => acc + (completed[slot.id] ? 1 : 0),
+              (acc, slot) => acc + (completedToday[slot.id] ? 1 : 0),
               0,
             );
+            const isTodayCard = section.id === todaySectionId;
 
             return (
               <section key={section.id}>
@@ -219,9 +339,25 @@ export function WeeklyPlan() {
                   {section.title}
                 </h2>
 
-                <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+                <div
+                  className={[
+                    "rounded-2xl border bg-white px-4 py-4 shadow-sm dark:bg-zinc-950",
+                    isTodayCard
+                      ? "border-emerald-500/60 ring-1 ring-emerald-500/25 dark:border-emerald-300/60 dark:ring-emerald-300/25"
+                      : "border-zinc-200 dark:border-zinc-800",
+                  ].join(" ")}
+                >
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm font-medium">{section.card.dayName}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">
+                        {section.card.dayName}
+                      </span>
+                      {isTodayCard ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] text-emerald-950 dark:bg-emerald-950 dark:text-emerald-200">
+                          Hoje
+                        </span>
+                      ) : null}
+                    </div>
                     <span
                       className={[
                         "rounded-full px-2 py-0.5 text-[11px]",
@@ -252,10 +388,31 @@ export function WeeklyPlan() {
                             {slot.time}
                           </div>
                           <TaskCheckbox
-                            checked={Boolean(completed[slot.id])}
-                            onChange={(checked) =>
-                              setCompleted((prev) => ({ ...prev, [slot.id]: checked }))
-                            }
+                            checked={Boolean(completedToday[slot.id])}
+                            disabled={!isTodayCard}
+                            onChange={(checked) => {
+                              if (!isTodayCard) return;
+                              setCompletedByDate((prev) => {
+                                const nextForToday = {
+                                  ...(prev[keyToday] ?? {}),
+                                  [slot.id]: checked,
+                                };
+                                return { ...prev, [keyToday]: nextForToday };
+                              });
+
+                              const nextForToday = {
+                                ...completedToday,
+                                [slot.id]: checked,
+                              };
+
+                              const completedAll = isTodayComplete(nextForToday);
+                              setStudiedDates((prev) => {
+                                if (completedAll) return { ...prev, [keyToday]: true };
+                                const next = { ...prev };
+                                delete next[keyToday];
+                                return next;
+                              });
+                            }}
                             label={slot.activity}
                             description={slot.detail}
                             variant={section.card.badge.variant}

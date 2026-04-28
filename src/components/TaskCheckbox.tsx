@@ -10,6 +10,7 @@ type TaskCheckboxProps = {
   label: string;
   description?: string;
   variant?: "blue" | "teal" | "amber" | "gray";
+  disabled?: boolean;
 };
 
 export function TaskCheckbox({
@@ -18,6 +19,7 @@ export function TaskCheckbox({
   label,
   description,
   variant = "teal",
+  disabled = false,
 }: TaskCheckboxProps) {
   const id = useId();
 
@@ -46,6 +48,7 @@ export function TaskCheckbox({
       <Checkbox
         id={id}
         checked={checked}
+        disabled={disabled}
         onCheckedChange={(next) => onChange(next === true)}
         className={cn(
           "mt-0",
@@ -56,7 +59,8 @@ export function TaskCheckbox({
       <label
         htmlFor={id}
         className={cn(
-          "flex-1 cursor-pointer select-none",
+          "flex-1 select-none",
+          disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
           "rounded-md outline-none focus-within:ring-2",
           ringClassByVariant[variant],
         )}
